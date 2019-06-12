@@ -64,6 +64,11 @@ def S(A, l):
                np.where((A[i,j] < -l)  & (i!=j), A[i,j] + l, 0)
     return np.fromfunction(lambda i, j: a(i,j), (A.shape[0],A.shape[1]))
 
+def p(X):
+    U_X, l, V_X = la.svd(X, full_matrices=True)
+    e = EPS*np.ones(l.shape[0])
+    return U_X.dot(np.diag(np.maximum(l, e))).dot(U_X.T)
+
 def scad(l,th,a):
     for i in range(th.shape[0]):
         if th[i] <= 2*l[i]:
@@ -87,12 +92,13 @@ def lla(L_init, Th_0_init, S_hat, rho, l_init):
     th_prev = Th_0_init
     l_n = l_init
     for i in tqdm(range(MAXIT), desc="lla"):
-        th_k = alg2(L_init, Th_0_init, S_hat, rho, l_n)
+        th_k = alg1(L_init, Th_0_init, S_hat, rho, l_n)
         l_n = update_lambda(l_n, np.abs(th_k), a)
         if la.norm(th_k - th_prev, np.inf) <= TOL:
             break
         th_prev = th_k
     return th_k, l_n
+
 
 def alg1(L_init, Th_0_init, S_hat, rho, l_n):
     Th_init = Th_0_init = la.inv(np.diag(np.diag(S_hat)))
@@ -107,7 +113,7 @@ def alg1(L_init, Th_0_init, S_hat, rho, l_n):
     for k in t:
         Th_prev = Th
         Th_0_prev = Th_0
-        L_prev = L
+        Th_1_prev = Th_1
 
         Th = G(S_hat + 2*rho * I, I + rho * Th_0 + rho*Th_1 - L_0 - L_1)
 
@@ -119,9 +125,12 @@ def alg1(L_init, Th_0_init, S_hat, rho, l_n):
 
         # convergence
         t.set_description(str(('alg1',la.norm(Th - Th_prev,'fro')/max(1, la.norm(Th, 'fro'), la.norm(Th_prev,'fro')), \
-                               la.norm(Th_0 - Th_0_prev,'fro')/max(1, la.norm(Th_0, 'fro'), la.norm(Th_0_prev,'fro')))))
+                               la.norm(Th_0 - Th_0_prev,'fro')/max(1, la.norm(Th_0, 'fro'), la.norm(Th_0_prev,'fro')), \
+                               la.norm(Th_1 - Th_1_prev,'fro')/max(1, la.norm(Th_1, 'fro'), la.norm(Th_1_prev,'fro')))))
+
         if la.norm(Th - Th_prev,'fro')/max(1, la.norm(Th, 'fro'), la.norm(Th_prev,'fro')) < TOL and \
-           la.norm(Th_0 - Th_0_prev,'fro')/max(1, la.norm(Th_0, 'fro'), la.norm(Th_0_prev,'fro')) < TOL:
+           la.norm(Th_0 - Th_0_prev,'fro')/max(1, la.norm(Th_0, 'fro'), la.norm(Th_0_prev,'fro')) < TOL and \
+           la.norm(Th_1 - Th_1_prev,'fro')/max(1, la.norm(Th_1, 'fro'), la.norm(Th_1_prev,'fro')) < TOL:
            break
     return Th
 
@@ -138,7 +147,6 @@ def alg2(L_init, Th_0_init, S_hat, rho, l_n):
     for k in t:
         Th_prev = Th
         Th_0_prev = Th_0
-        L_prev = L
 
         Th = G(S_hat + rho * I, I + rho * Th_0 - L)
         Th_0 = S(Th + 1.0/rho * L, 1.0/rho * l_n)
@@ -210,7 +218,7 @@ for i, (X, S_star) in tqdm(enumerate(test_cases),desc="test cases"):
     L_init = np.zeros(S_hat.shape)
 
     risks = []
-    for j in tqdm(range(5), desc="trials"):
+    for j in tqdm(range(100), desc="trials"):
         th, l_n = lla(L_init, Th_0_init, S_hat, rho, l_init)
         th = np.around(th, 6)
         #th = alg2(L_init, Th_0_init, S_hat, rho, l_init)
@@ -220,5 +228,3 @@ for i, (X, S_star) in tqdm(enumerate(test_cases),desc="test cases"):
         risks.append(r)
     tqdm.write(str((i,dict_stats(risks))))
     R.append(dict_stats(risks))
-
-print(R)
