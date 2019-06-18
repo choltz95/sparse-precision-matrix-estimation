@@ -72,7 +72,7 @@ def p(X):
 def scad(l,th,a):
     for i in range(th.shape[0]):
         if th[i] <= 2*l[i]:
-            np.sign(th[i])*(th[i] - l[i])
+            th[i] = np.sign(th[i])*(th[i] - l[i])
         elif 2*l[i] <= th[i]  and th[i] <= a*l[i]:
             th[i] = np.sign(th[i])*((a-1)*th[i] - a*l)/(a-2)
         elif a*l[i] <= th[i]:
